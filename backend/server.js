@@ -198,18 +198,52 @@ function extractVideoId(url) {
   return match ? match[1] : null;
 }
 
-const SPORTS_THUMBNAIL_TEXT_REQUIREMENT = `
+function getSportsThumbnailTextRequirement(language = "English") {
+  const targetLanguage = normalizePromptLanguage(language);
+  const headlineFormulas =
+    targetLanguage === "German"
+      ? [
+          "[Team-/Figurenname]s [Plan/Saison/Zukunft] ist gerade ZUSAMMENGEBROCHEN – [schockierendes Ereignis] könnte alles verändern!",
+          "[Team-/Figurenname] steht nach [schockierendem Ereignis] vor einem gewaltigen SCHOCK – was passiert jetzt?",
+          "Niemand hat das kommen sehen: [schockierendes Ereignis] stellt [Team-/Figurenname]s Zukunft auf den Kopf!",
+          "[Team-/Figurenname] in der KRISE: [schockierendes Ereignis] könnte alles auf den Kopf stellen!",
+          "[Team-/Figurenname]s Saison nimmt nach [schockierendem Ereignis] eine verheerende Wende!",
+          "Ist das das ENDE für [Team-/Figurenname]? [Schockierendes Ereignis] lässt alle sprachlos zurück!",
+          "[Team-/Figurenname] droht alles zu verlieren – [schockierendes Ereignis] verändert jetzt alles!",
+          "Ein unerwarteter SCHOCK trifft [Team-/Figurenname] – die Folgen könnten gewaltig sein!",
+        ]
+      : [
+          "[Team/Character Name]'s [Plan/Season/Future] Just COLLAPSED—[Shocking Event] Could Change Everything!",
+          "[Team/Character Name] Hit With a SHOCKING Setback—[Major Consequence] Now Looms!",
+          "Nobody Saw This Coming: [Shocking Event] Just Changed [Team/Character Name]'s Future!",
+          "[Team/Character Name] in CRISIS After [Shocking Event]—What Happens Next?",
+          "[Team/Character Name]'s Season Takes a DEVASTATING Turn After [Shocking Event]!",
+          "Is This the END for [Team/Character Name]? [Shocking Event] Leaves Everyone Stunned!",
+          "[Team/Character Name] Could Lose Everything After [Shocking Event]—The Fallout Begins!",
+          "A Massive SHOCK Rocks [Team/Character Name]—The Consequences Could Be Unbelievable!",
+        ];
+  const headlineFormula =
+    headlineFormulas[Math.floor(Math.random() * headlineFormulas.length)];
+
+  return `
 ### THUMBNAIL_TEXT_REQUIREMENT:
 - At the very end of the response, include one marker block in this format:
   [[THUMBNAIL_TEXT: <headline>
   <body paragraph>]]
 - Write the headline first on its own line, followed by the body on the next line. Keep the body as one paragraph with no line breaks.
-- Headline formula: [Team/Character Name]'s [Plan/Season/Future] Just COLLAPSED—[Shocking Event] Could Change Everything!
-- Make the headline approximately 8-15 words, powerful, dramatic, and attention-grabbing.
+- Randomly selected headline formula, written entirely in ${targetLanguage}: ${headlineFormula}
+- Make the headline approximately 8–15 words, powerful, dramatic, and attention-grabbing.
 - Write the body in approximately 90-120 words. In order, cover: [SHOCK] the main shocking development in one sentence; [EVIDENCE] 1–2 of the strongest supported details, facts, or numbers; [STAKES] why this could have serious consequences; [CONFLICT] escalating tension, conflict, or pressure; [CONSEQUENCE] what could happen next; and [CLIFFHANGER] a suspenseful question.
 - Use a dramatic, high-impact storytelling style with emotional hooks, urgency, escalating tension, and curiosity. Do not print the bracketed beat labels.
-- Keep the headline and body in English. Do not invent facts, details, or statistics.
+- Do not invent facts, details, or statistics.
 `;
+}
+
+function normalizePromptLanguage(language) {
+  return String(language || "English").toLowerCase() === "german"
+    ? "German"
+    : "English";
+}
 
 function getPrompt(
   youtubeUrl,
@@ -217,7 +251,9 @@ function getPrompt(
   truncatedDescription,
   thumbnailText,
   generationMode = "story",
+  language = "English",
 ) {
+  const targetLanguage = normalizePromptLanguage(language);
   let topicInstruction = "";
   let languageInstruction = "";
   let roleInstruction = "";
@@ -235,9 +271,9 @@ Transform this YouTube video into a highly dramatic sports article with a strong
     topicInstruction = `
 - The article should be based on the video title, description, and the emotional stakes of the sports story.`;
     languageInstruction = `
-  - The article MUST be written entirely in English. Do not write in Spanish, Vietnamese, or any other language, even if the video title uses another language.`;
+  - The article MUST be written entirely in ${targetLanguage}. Do not use another language, even if the video title uses another language.`;
 
-    taskInstruction += SPORTS_THUMBNAIL_TEXT_REQUIREMENT;
+    taskInstruction += `${getSportsThumbnailTextRequirement(targetLanguage)}\n- Write the headline and body in ${targetLanguage}.`;
   } else {
     roleInstruction = `
 ### SYSTEM ROLE:
@@ -254,12 +290,12 @@ Transform this YouTube video into a highly dramatic long-form sports article.
 - The topic and focus of the article MUST depend on and revolve around the text found on the video's thumbnail image: "${thumbnailText}". Make sure this concept/player/event is central to the article's narrative.`;
 
     languageInstruction = `
-  - The article MUST be written entirely in English. Treat the thumbnail text only as source information; do not copy its language into the article. Do not write in Spanish, Vietnamese, or any other language.`;
+  - The article MUST be written entirely in ${targetLanguage}. Treat the thumbnail text only as source information; do not copy its language into the article.`;
   } else {
     topicInstruction = `
 - The topic of the article should be based on the video title and description.`;
     languageInstruction = `
-  - The article MUST be written entirely in English. Do not write in Spanish, Vietnamese, or any other language, even if the video title uses another language.`;
+  - The article MUST be written entirely in ${targetLanguage}. Do not use another language, even if the video title uses another language.`;
   }
 
   return `${roleInstruction}${taskInstruction}
@@ -300,6 +336,7 @@ async function generateWithOpenRouter(
   truncatedDescription,
   thumbnailText,
   generationMode = "story",
+  language = "English",
 ) {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
 
@@ -319,6 +356,7 @@ async function generateWithOpenRouter(
     truncatedDescription,
     thumbnailText,
     generationMode,
+    language,
   );
 
   console.log(`📡 Sending request to OpenRouter for: ${title}`);
@@ -390,6 +428,7 @@ async function generateWithLocalAI(
   truncatedDescription,
   thumbnailText,
   generationMode = "story",
+  language = "English",
 ) {
   const localUrl =
     process.env.LOCAL_AI_URL || "http://localhost:8080/v1/chat/completions";
@@ -415,6 +454,7 @@ async function generateWithLocalAI(
             truncatedDescription,
             thumbnailText,
             generationMode,
+            language,
           ),
         },
       ],
@@ -474,15 +514,28 @@ function buildEnglishFallbackClickbait(title, article) {
   return `The shocking story behind ${shortTitle} is about to change everything and leave fans stunned.`;
 }
 
+function buildLanguageFallbackClickbait(title, language) {
+  if (normalizePromptLanguage(language) === "German") {
+    const rawTitle = (title || "Diese Geschichte")
+      .replace(/<[^>]+>/g, " ")
+      .trim();
+    const shortTitle =
+      rawTitle.length > 90 ? `${rawTitle.slice(0, 87).trimEnd()}...` : rawTitle;
+    return `Die schockierende Geschichte hinter ${shortTitle} wird alles verändern und die Fans verblüffen.`;
+  }
+  return buildEnglishFallbackClickbait(title);
+}
+
 function isVietnameseText(text) {
   return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
     text || "",
   );
 }
 
-function buildSportsClickbaitPrompt(sourceText, title) {
+function buildSportsClickbaitPrompt(sourceText, title, language = "English") {
   const safeSource = (sourceText || title || "This story").trim();
-  return `Rewrite the content below into dramatic, high-impact sports thumbnail text. Follow the required headline and body format exactly. The body must contain 90-120 words; never replace it with a short summary. Count the body words before responding and return only the required marker block.\n${SPORTS_THUMBNAIL_TEXT_REQUIREMENT}\nThe title is: "${title}".\n\nOriginal content:\n${safeSource}`;
+  const targetLanguage = normalizePromptLanguage(language);
+  return `Rewrite the content below into dramatic, high-impact sports thumbnail text in ${targetLanguage}. Follow the required headline and body format exactly. The body must contain 90-120 words; never replace it with a short summary. Count the body words before responding and return only the required marker block.\n${getSportsThumbnailTextRequirement(targetLanguage)}\nWrite the headline and body in ${targetLanguage}. The title is: "${title}".\n\nOriginal content:\n${safeSource}`;
 }
 
 function extractSportsThumbnailText(articleText = "") {
@@ -516,7 +569,7 @@ function validateSportsThumbnailText(text = "") {
   const headline = lines[0];
   const body = lines.slice(1).join(" ");
   const countWords = (value) =>
-    (value.match(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g) || []).length;
+    (value.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || []).length;
   const headlineWordCount = countWords(headline);
   const bodyWordCount = countWords(body);
 
@@ -536,16 +589,23 @@ async function generateValidatedSportsThumbnailText(
   sourceText,
   title,
   provider,
+  language = "English",
 ) {
   let previousDraft = "";
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const prompt = buildSportsClickbaitPrompt(sourceText, title);
+    const prompt = buildSportsClickbaitPrompt(sourceText, title, language);
+    const targetLanguage = normalizePromptLanguage(language);
     const retryPrompt =
       attempt === 0
         ? prompt
-        : `${prompt}\n\nYour previous draft did not satisfy the required word counts. Rewrite it to have an 8-15 word headline and a 90-120 word body. Do not shorten the body.\nPrevious draft:\n${previousDraft}`;
-    const draft = await generateClickbaitText(retryPrompt, title, provider);
+        : `${prompt}\n\nIMPORTANT: Write the headline and body entirely in ${targetLanguage}. Do not switch to English or any other language.\nHeadline: 8-15 words.\nBody: one paragraph containing exactly 6 complete sentences.\nMake each sentence approximately 16-18 words so the body reaches 90-120 words.\nBefore responding, silently check that the headline and body meet these requirements. If they do not, revise them before providing the final answer.\nReturn only the required marker block containing the headline and body. Do not include a word count or explanation.\nPrevious draft:\n${previousDraft}`;
+    const draft = await generateClickbaitText(
+      retryPrompt,
+      title,
+      provider,
+      language,
+    );
     const validatedText = validateSportsThumbnailText(draft);
 
     if (validatedText) return validatedText;
@@ -561,7 +621,12 @@ async function generateValidatedSportsThumbnailText(
   );
 }
 
-async function generateClickbaitText(prompt, title, provider = "groq") {
+async function generateClickbaitText(
+  prompt,
+  title,
+  provider = "groq",
+  language = "English",
+) {
   if (provider === "openrouter") {
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     if (!openRouterKey) {
@@ -606,7 +671,7 @@ async function generateClickbaitText(prompt, title, provider = "groq") {
     const apiData = await apiRes.json();
     const rawText = apiData.choices?.[0]?.message?.content?.trim() || "";
     return isVietnameseText(rawText)
-      ? buildEnglishFallbackClickbait(title, prompt)
+      ? buildLanguageFallbackClickbait(title, language)
       : rawText;
   } else if (provider === "local") {
     const localUrl =
@@ -634,7 +699,7 @@ async function generateClickbaitText(prompt, title, provider = "groq") {
     const apiData = await apiRes.json();
     const rawText = apiData.choices?.[0]?.message?.content?.trim() || "";
     return isVietnameseText(rawText)
-      ? buildEnglishFallbackClickbait(title, prompt)
+      ? buildLanguageFallbackClickbait(title, language)
       : rawText;
   }
 
@@ -667,7 +732,7 @@ async function generateClickbaitText(prompt, title, provider = "groq") {
         const apiData = await apiRes.json();
         const rawText = apiData.choices?.[0]?.message?.content?.trim() || "";
         return isVietnameseText(rawText)
-          ? buildEnglishFallbackClickbait(title, prompt)
+          ? buildLanguageFallbackClickbait(title, language)
           : rawText;
       } else {
         const errorData = await apiRes.json().catch(() => ({}));
@@ -710,7 +775,7 @@ async function generateClickbaitText(prompt, title, provider = "groq") {
   const apiData = await apiRes.json();
   const rawText = apiData.choices?.[0]?.message?.content?.trim() || "";
   return isVietnameseText(rawText)
-    ? buildEnglishFallbackClickbait(title, prompt)
+    ? buildLanguageFallbackClickbait(title, language)
     : rawText;
 }
 
@@ -842,7 +907,9 @@ app.post("/generate-article", async (req, res) => {
     provider = "groq",
     generationMode = "story",
     thumbnailMode = "story",
+    language = "English",
   } = req.body;
+  const promptLanguage = normalizePromptLanguage(language);
   const videoId = extractVideoId(youtubeUrl);
 
   if (!videoId) {
@@ -1100,6 +1167,7 @@ If there is no text, return an empty string.
           truncatedDescription,
           thumbnailText,
           generationMode,
+          promptLanguage,
         );
       } else if (provider === "local") {
         article = await generateWithLocalAI(
@@ -1108,6 +1176,7 @@ If there is no text, return an empty string.
           truncatedDescription,
           thumbnailText,
           generationMode,
+          promptLanguage,
         );
       } else {
         // Attempt Groq first
@@ -1140,6 +1209,7 @@ If there is no text, return an empty string.
                         truncatedDescription,
                         thumbnailText,
                         generationMode,
+                        promptLanguage,
                       ),
                     },
                   ],
@@ -1213,6 +1283,7 @@ If there is no text, return an empty string.
               truncatedDescription,
               thumbnailText,
               generationMode,
+              promptLanguage,
             );
             console.log("✅ Fallback to OpenRouter successful!");
           } catch (fallbackErr) {
@@ -1247,6 +1318,7 @@ If there is no text, return an empty string.
                 clickbaitSource,
                 title,
                 provider,
+                promptLanguage,
               ),
             clickbaitTimeoutMs,
           );
@@ -1300,6 +1372,7 @@ If there is no text, return an empty string.
               article,
               title,
               provider,
+              promptLanguage,
             );
           } catch (thumbnailError) {
             console.warn(
