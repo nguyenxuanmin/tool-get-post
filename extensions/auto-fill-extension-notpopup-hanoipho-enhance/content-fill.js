@@ -109,7 +109,7 @@ function fillLinastoryPayload(message) {
     const endIcons = getRandomIcons(2);
     const rawTitle = title || "";
     const hasLeadingIcon = startsWithAttentionIcon(rawTitle);
-    const titleText = rawTitle + " #TP";
+    const titleText = rawTitle + " #XM";
     const descriptionText = description || "";
 
     // Use direct assignments on real WordPress form fields to avoid Illegal invocation.

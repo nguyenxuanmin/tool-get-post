@@ -162,7 +162,7 @@ if (titleInput && permalink && contentTextarea) {
     }
 
     const data = {
-      title: titleInput.value.trim().replace(/\s*#TP\s*$/, ""),
+      title: titleInput.value.trim().replace(/\s*#XM\s*$/, ""),
       link: permalink.trim(),
       shortlink: shortlink || null,
       thumbnail: thumbnail,
